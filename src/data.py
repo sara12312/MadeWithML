@@ -1,5 +1,4 @@
 from typing import Dict, List, Tuple
-
 import numpy as np
 import pandas as pd
 import ray
@@ -16,18 +15,15 @@ def stratify_split(
     """Split a dataset into train and test splits with equal
     amounts of data points from each class in the column we
     want to stratify on.
-
     Args:
         ds (Dataset): Input dataset to split.
         stratify (str): Name of column to split on.
         test_size (float): Proportion of dataset to split for test set.
         shuffle (bool, optional): whether to shuffle the dataset. Defaults to True.
         seed (int, optional): seed for shuffling. Defaults to 42.
-
     Returns:
         Tuple[Dataset, Dataset]: the stratified train and test datasets.
     """
-
     def _add_split(df: pd.DataFrame) -> pd.DataFrame:  # pragma: no cover, used in parent function
         """Naively split a dataframe into train and test splits.
         Add a column specifying whether it's the train or test split."""
@@ -35,19 +31,27 @@ def stratify_split(
         train["_split"] = "train"
         test["_split"] = "test"
         return pd.concat([train, test])
-
+    
     def _filter_split(df: pd.DataFrame, split: str) -> pd.DataFrame:  # pragma: no cover, used in parent function
         """Filter by data points that match the split column's value
         and return the dataframe with the _split column dropped."""
         return df[df["_split"] == split].drop("_split", axis=1)
-
+    
+    # Create specific filter functions for train and test
+    def _filter_train(df: pd.DataFrame) -> pd.DataFrame:
+        return _filter_split(df, "train")
+    
+    def _filter_test(df: pd.DataFrame) -> pd.DataFrame:
+        return _filter_split(df, "test")
+    
     # Train, test split with stratify
     grouped = ds.groupby(stratify).map_groups(_add_split, batch_format="pandas")  # group by each unique value in the column we want to stratify on
-    train_ds = grouped.map_batches(_filter_split, fn_kwargs={"split": "train"}, batch_format="pandas")  # type: ignore 
-    test_ds = grouped.map_batches(_filter_split, fn_kwargs={"split": "test"}, batch_format="pandas")  # type: ignore 
-
+    train_ds = grouped.map_batches(_filter_train, batch_format="pandas")  
+    test_ds = grouped.map_batches(_filter_test, batch_format="pandas")  
+    
     # Shuffle each split (required)
     train_ds = train_ds.random_shuffle(seed=seed)
     test_ds = test_ds.random_shuffle(seed=seed)
-
+    
     return train_ds, test_ds
+
