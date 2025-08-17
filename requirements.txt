@@ -14,7 +14,7 @@ snorkel==0.9.9
 SQLAlchemy==1.4.48
 torch==2.0.0
 transformers==4.28.1
-openai==0.27.8
+openai==1.99.9
 tqdm==4.65.0
 
 # Notebook
